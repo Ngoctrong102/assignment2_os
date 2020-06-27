@@ -1,4 +1,3 @@
-
 #include "mem.h"
 #include "stdlib.h"
 #include "string.h"
@@ -135,7 +134,8 @@ addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
 			free_pages++;
 	}
 	mem_avail = free_pages > num_pages ? 1 : 0;
-	if (proc->bp + num_pages * PAGE_SIZE > (1 << ADDRESS_SIZE)) mem_avail = 0;
+	if (proc->bp + num_pages * PAGE_SIZE > (1 << ADDRESS_SIZE))
+		mem_avail = 0;
 	if (mem_avail)
 	{
 		/* We could allocate new memory region to the process */
@@ -165,16 +165,24 @@ addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
 			page_table = get_page_table(get_first_lv(temp_ret), proc->seg_table);
 			if (page_table == NULL)
 			{
-				proc->seg_table->table[proc->seg_table->size].pages = malloc(sizeof(struct page_table_t));
-				page_table = proc->seg_table->table[proc->seg_table->size].pages;
-				proc->seg_table->table[proc->seg_table->size].v_index = get_first_lv(temp_ret);
-				proc->seg_table->size++;
-				page_table->size=0;
+				if (proc->seg_table->size < (1 << PAGE_LEN))
+				{
+					proc->seg_table->table[proc->seg_table->size].pages = malloc(sizeof(struct page_table_t));
+					page_table = proc->seg_table->table[proc->seg_table->size].pages;
+					proc->seg_table->table[proc->seg_table->size].v_index = get_first_lv(temp_ret);
+					proc->seg_table->size++;
+					page_table->size = 0;
+				}
 			}
-			page_table->table[page_table->size].v_index = get_second_lv(temp_ret);
-			page_table->table[page_table->size].p_index = get_second_lv(page_index * PAGE_SIZE);
-			page_table->size++;
-			temp_ret+=PAGE_SIZE;
+			if (page_table->size < (1 << SEGMENT_LEN))
+			{
+				// page_table->table[page_table->size].v_index = get_second_lv(temp_ret);
+				// page_table->table[page_table->size].p_index = get_second_lv(page_index * PAGE_SIZE);
+				// page_table->table[page_table->size].v_index = get_second_lv(temp_ret);
+				page_table->table[get_second_lv(temp_ret)].p_index = get_second_lv(page_index * PAGE_SIZE);
+				page_table->size++;
+				temp_ret += PAGE_SIZE;
+			}
 		}
 		_mem_stat[page_index].next = -1;
 	}
@@ -194,21 +202,28 @@ int free_mem(addr_t address, struct pcb_t *proc)
 	 * 	  processes.  */
 	pthread_mutex_lock(&mem_lock);
 	int next = 0;
-	addr_t * p_addr = NULL;
-	if (translate(address,p_addr,proc)==0) return 0;
-	while (next!=-1){
-		next = _mem_stat[p_addr >> OFFSET_LEN].next;
-		_mem_stat[p_addr >> OFFSET_LEN].proc = 0;
-		struct page_table_t * page_table = get_page_table(get_first_lv(address),proc->seg_table);
-		for (int i=0; i<page_table->size;i++){
-			if (page_table->pages[i].v_index == get_second_lv(address)){
-				page_table->pages[i].v_index = page_table->pages[page_table->size-1].v_index;
-				page_table->pages[i].p_index = page_table->pages[page_table->size-1].p_index;
+	addr_t *p_addr = malloc(sizeof(addr_t));
+	// printf("hghghghgghghghghghghghghghghghghghghghghghghgh1");
+	if (translate(address, p_addr, proc) == 0)
+		return 0;
+	// printf("qqwqwqwqwqwqwqwqwqwqwqwqwqwqwqwqwqwqwqwqwqw2");
+	while (next != -1)
+	{
+		next = _mem_stat[(*p_addr) >> OFFSET_LEN].next;
+		// printf("hahhahaahahahahaha %d",p_addr >> OFFSET_LEN);
+		_mem_stat[(*p_addr) >> OFFSET_LEN].proc = 0;
+		struct page_table_t *page_table = get_page_table(get_first_lv(address), proc->seg_table);
+		for (int i = 0; i < page_table->size; i++)
+		{
+			if (page_table->table[i].p_index == ((*p_addr) >> OFFSET_LEN))
+			{
+				page_table->table[i].v_index = 0; //page_table->table[page_table->size - 1].v_index;
+				page_table->table[i].p_index = 0; //page_table->table[page_table->size - 1].p_index;
 				page_table->size--;
 			}
 		}
-		address+=PAGE_SIZE;
-		translate(address,p_addr,proc);
+		address += PAGE_SIZE;
+		translate(address, p_addr, proc);
 	}
 	pthread_mutex_unlock(&mem_lock);
 	return 0;
