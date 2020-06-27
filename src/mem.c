@@ -176,10 +176,9 @@ addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
 			}
 			if (page_table->size < (1 << SEGMENT_LEN))
 			{
-				// page_table->table[page_table->size].v_index = get_second_lv(temp_ret);
-				// page_table->table[page_table->size].p_index = get_second_lv(page_index * PAGE_SIZE);
-				// page_table->table[page_table->size].v_index = get_second_lv(temp_ret);
-				page_table->table[get_second_lv(temp_ret)].p_index = get_second_lv(page_index * PAGE_SIZE);
+				page_table->table[page_table->size].v_index = get_second_lv(temp_ret);
+				page_table->table[page_table->size].p_index = get_second_lv(page_index * PAGE_SIZE);
+				
 				page_table->size++;
 				temp_ret += PAGE_SIZE;
 			}
@@ -219,7 +218,7 @@ int free_mem(addr_t address, struct pcb_t *proc)
 			{
 				page_table->table[i].v_index = 0; //page_table->table[page_table->size - 1].v_index;
 				page_table->table[i].p_index = 0; //page_table->table[page_table->size - 1].p_index;
-				page_table->size--;
+				// page_table->size--;
 			}
 		}
 		address += PAGE_SIZE;
