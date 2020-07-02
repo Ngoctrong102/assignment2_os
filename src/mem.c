@@ -46,25 +46,8 @@
 	static struct page_table_t *get_page_table(
 		addr_t index, // Segment level index
 		struct seg_table_t *seg_table)
-	{ // first level table
-
-		/*
-		* TODO: Given the Segment index [index], you must go through each
-		* row of the segment table [seg_table] and check if the v_index
-		* field of the row is equal to the index
-		*
-		* */
+	{ 
 		return seg_table->table[index].pages;
-		// int i;
-		// for (i = 0; i < seg_table->size; i++)
-		// {
-		// 	// Enter your code here
-		// 	if (seg_table->table[i].v_index == index)
-		// 	{
-		// 		return seg_table->table[i].pages;
-		// 	}
-		// }
-		return NULL;
 	}
 
 	/* Translate virtual address to physical address. If [virtual_addr] is valid,
@@ -91,20 +74,15 @@
 			return 0;
 		}
 
-		int i;
-		for (i = 0; i < page_table->size; i++)
-		{
-			if (page_table->table[i].v_index == second_lv)
-			{
-				/* TODO: Concatenate the offset of the virtual addess
-				* to [p_index] field of page_table->table[i] to 
-				* produce the correct physical address and save it to
-				* [*physical_addr]  */
-				*physical_addr = (page_table->table[i].p_index << OFFSET_LEN) + offset;
-				return 1;
-			}
+		if (page_table->table[second_lv].v_index == -1){
+			return 0;
 		}
-		return 0;
+
+		else
+		{
+			*physical_addr = (page_table->table[second_lv].p_index << OFFSET_LEN) + offset;
+			return 1;
+		}
 	}
 
 	addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
@@ -165,16 +143,16 @@
 				page_table = get_page_table(get_first_lv(temp_ret), proc->seg_table);
 				if (page_table == NULL)
 				{
-					// proc->seg_table->table[proc->seg_table->size].pages = malloc(sizeof(struct page_table_t));
-					// page_table = proc->seg_table->table[proc->seg_table->size].pages;
-					// proc->seg_table->table[proc->seg_table->size].v_index = get_first_lv(temp_ret);
-					// proc->seg_table->size++;
-					// page_table->size = 0;
+		
 					proc->seg_table->table[get_first_lv(temp_ret)].pages = malloc(sizeof(struct page_table_t));
 					page_table = proc->seg_table->table[get_first_lv(temp_ret)].pages;
 					proc->seg_table->table[get_first_lv(temp_ret)].v_index = get_first_lv(temp_ret);
-					// proc->seg_table->size++;
 					page_table->size = 1 << PAGE_LEN;
+					
+					for (int i = 0 ; i < page_table->size ; ++i){
+						page_table->table[i].v_index = -1;
+						page_table->table[i].p_index = -1;
+					}
 					
 				}
 				page_table->table[get_second_lv(temp_ret)].v_index = get_second_lv(temp_ret);
@@ -209,17 +187,9 @@
 			next = _mem_stat[(*p_addr) >> OFFSET_LEN].next;
 			_mem_stat[(*p_addr) >> OFFSET_LEN].proc = 0;
 			struct page_table_t * page_table = get_page_table(get_first_lv(address), proc->seg_table);
-			// for (int i = 0; i < page_table->size; i++)
-			// {
-			// 	if (page_table->table[i].p_index == ((*p_addr) >> OFFSET_LEN))
-			// 	{
-			// 		page_table->table[i].v_index = 0;
-			// 		page_table->table[i].p_index = 0;
-			// 	}
-			// }
 			if (page_table){
-				page_table->table[get_second_lv(address)].p_index = 0;
-				page_table->table[get_second_lv(address)].v_index = 0;
+				page_table->table[get_second_lv(address)].p_index = -1;
+				page_table->table[get_second_lv(address)].v_index = -1;
 			}
 			address += PAGE_SIZE;
 			translate(address, p_addr, proc);
